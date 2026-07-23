@@ -208,6 +208,14 @@ func TestVaultReadErrors(t *testing.T) {
 	_, _, err = readVault(empty)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty")
+
+	// Entry contains only trailing newlines, which trim down to nothing. This
+	// must be treated as empty rather than returned as a valid empty secret.
+	newlines := testVaultOptions(t, addr, "lnd/test/wallet", "newlines")
+	require.NoError(t, saveVault("\r\n", newlines, false))
+	_, _, err = readVault(newlines)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "empty")
 }
 
 // TestStoreSecretsVault exercises the batch store helper used by the

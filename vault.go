@@ -163,15 +163,18 @@ func readVault(opts *vaultSecretOptions) (string, *jsonVaultObject, error) {
 		return "", nil, fmt.Errorf("entry %s of secret %s is not a "+
 			"string value", opts.SecretKeyName, opts.SecretPath)
 	}
-	if len(stringEntry) == 0 {
-		return "", nil, fmt.Errorf("secret %s exists but the entry %s "+
-			"is empty", opts.SecretPath, opts.SecretKeyName)
-	}
 
 	// Remove any newlines at the end of the value. We never write a newline
 	// ourselves, but the entry may have been provisioned by another process
-	// or user.
+	// or user. This happens before the empty check so that an entry that is
+	// only newlines is treated as empty rather than trimmed down to an empty
+	// string and returned as if it were a valid secret.
 	content := strings.TrimRight(stringEntry, "\r\n")
+
+	if len(content) == 0 {
+		return "", nil, fmt.Errorf("secret %s exists but the entry %s "+
+			"is empty", opts.SecretPath, opts.SecretKeyName)
+	}
 
 	return content, newJSONVaultObject(secret), nil
 }
