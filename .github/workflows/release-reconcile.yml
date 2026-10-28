@@ -1,0 +1,72 @@
+name: Release reconcile
+
+# Reports which lnd releases are missing an lndinit image and which lndinit
+# version each one should contain. This is a dry run: it only reads lnd's tags,
+# this repository's tags and Docker Hub, and never builds, pushes or tags
+# anything. See release/reconciler for the pairing rule.
+
+on:
+  workflow_dispatch:
+    inputs:
+      lines:
+        description: 'Comma separated lnd major lines to reconcile'
+        required: true
+        default: 'v0.20,v0.21'
+      include-superseded-rcs:
+        description: 'Also report rcs superseded by a later rc or the final release as buildable'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  dry-run:
+    name: dry run
+    runs-on: [self-hosted]
+    # A pass takes seconds. The reconciler bounds itself at five minutes,
+    # and this catches a hang outside it, such as in setup.
+    timeout-minutes: 15
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v2
+        with:
+          # The pairing rule reads go.mod at every lndinit version tag.
+          fetch-depth: 0
+          # Nothing here pushes, so the token needn't stay in .git/config
+          # on a shared self-hosted runner.
+          persist-credentials: false
+
+      - name: setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: release/reconciler/go.mod
+          cache: 'true'
+          cache-dependency-path: release/reconciler/go.sum
+
+      - name: reconcile
+        working-directory: release/reconciler
+        env:
+          LINES: ${{ inputs.lines }}
+          INCLUDE_SUPERSEDED_RCS: ${{ inputs.include-superseded-rcs }}
+          # Read-only use, to raise the GitHub API rate limit for release
+          # lookups.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          go build -o "$RUNNER_TEMP/reconciler" .
+          "$RUNNER_TEMP/reconciler" \
+            -repo "$GITHUB_WORKSPACE" \
+            -lines "$LINES" \
+            -include-superseded-rcs="$INCLUDE_SUPERSEDED_RCS" \
+            -json-out "$RUNNER_TEMP/decisions.json" \
+            -summary-out "$GITHUB_STEP_SUMMARY"
+
+      - name: upload decisions
+        uses: actions/upload-artifact@v4
+        with:
+          name: reconcile-decisions
+          path: ${{ runner.temp }}/decisions.json
