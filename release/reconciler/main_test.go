@@ -30,18 +30,24 @@ func TestWriteTable(t *testing.T) {
 	}, {
 		Lnd: "v0.20.5-beta", Line: "v0.20", Status: statusPresent,
 		Detail: "v0.1.34-beta-lnd-v0.20.5-beta",
+	}, {
+		Lnd: "v0.20.5-beta.rc1", Line: "v0.20",
+		Status: statusSuperseded,
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	out := b.String()
+	if strings.Contains(out, "v0.20.5-beta.rc1") {
+		t.Errorf("superseded rc listed in the table:\n%s", out)
+	}
 	for _, want := range []string{
 		"v0.20.6-beta  v0.20  build    v0.1.34-beta  " +
 			"v0.1.34-beta-lnd-v0.20.6-beta",
 		"1 build, 0 wait-signatures, 0 wait-base-image, " +
 			"0 needs-manual, 0 no-lndinit, 1 present, " +
-			"0 superseded-rc",
+			"1 superseded-rc",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing %q:\n%s", want, out)

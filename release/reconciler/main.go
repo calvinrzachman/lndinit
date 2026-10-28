@@ -128,16 +128,21 @@ func parseLines(s string) ([]string, error) {
 }
 
 // writeTable writes the decisions as an aligned table followed by a count of
-// each status.
+// each status. Superseded rcs are only counted, since they are most of the
+// rows and never need anything.
 func writeTable(w io.Writer, decisions []decision) error {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "LND\tLINE\tSTATUS\tLNDINIT\tDETAIL")
 
 	n := make(map[status]int)
 	for _, d := range decisions {
+		n[d.Status]++
+		if d.Status == statusSuperseded {
+			continue
+		}
+
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", d.Lnd, d.Line,
 			d.Status, d.Lndinit, d.Detail)
-		n[d.Status]++
 	}
 	if err := tw.Flush(); err != nil {
 		return err
