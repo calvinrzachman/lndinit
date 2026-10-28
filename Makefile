@@ -111,6 +111,10 @@ unit:
 	@$(call print, "Running unit tests.")
 	$(GOTEST) -tags="$(DEV_TAGS)" ./...
 
+reconciler-unit:
+	@$(call print, "Running release reconciler unit tests.")
+	cd release/reconciler && $(GOTEST) ./...
+
 fmt: $(GOIMPORTS_BIN)
 	@$(call print, "Fixing imports.")
 	gosimports -w $(GOFILES_NOVENDOR)
@@ -138,4 +142,5 @@ clean:
 	fmt \
 	lint \
 	vendor \
+	reconciler-unit \
 	clean
