@@ -1,0 +1,60 @@
+name: Release reconcile
+
+# Reports which lnd releases are missing an lndinit image and which lndinit
+# version each one should contain. This is a dry run: it only reads lnd's tags
+# and releases, this repository's tags and Docker Hub, and never builds,
+# pushes or tags anything. See release/reconciler for the pairing rule.
+
+on:
+  workflow_dispatch:
+    inputs:
+      lines:
+        description: 'Comma separated lnd major lines to reconcile'
+        required: true
+        default: 'v0.20,v0.21'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  dry-run:
+    name: dry run
+    runs-on: [self-hosted]
+    timeout-minutes: 15
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v2
+        with:
+          # The pairing rule reads go.mod at every lndinit version tag and
+          # asks git which releases descend from which.
+          fetch-depth: 0
+          # Nothing here pushes, so the token needn't stay in .git/config
+          # on a shared self-hosted runner.
+          persist-credentials: false
+
+      - name: setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: release/reconciler/go.mod
+          cache: 'true'
+          cache-dependency-path: release/reconciler/go.sum
+
+      - name: reconcile
+        working-directory: release/reconciler
+        env:
+          LINES: ${{ inputs.lines }}
+          # Read-only use, to raise the GitHub API rate limit.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          go run . -repo "$GITHUB_WORKSPACE" -lines "$LINES" \
+            | tee "$RUNNER_TEMP/report.txt"
+          {
+            echo '## lndinit image reconcile (dry run)'
+            echo '```'
+            cat "$RUNNER_TEMP/report.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
