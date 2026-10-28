@@ -53,3 +53,6 @@ jobs:
 
       - name: run unit test
         run: make unit
+
+      - name: run release reconciler unit test
+        run: make reconciler-unit

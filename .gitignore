@@ -57,3 +57,6 @@ coverage.txt
 
 # Visual Studio cache/options directory
 .vs/
+
+# Built by go build in the release reconciler module.
+/release/reconciler/reconciler
